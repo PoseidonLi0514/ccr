@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CCR 管理面板</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+.login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+.login-box { background: #1e293b; border-radius: 12px; padding: 40px; width: 360px; box-shadow: 0 4px 24px rgba(0,0,0,.4); }
+.login-box h1 { text-align: center; margin-bottom: 8px; font-size: 24px; color: #f8fafc; }
+.login-box p { text-align: center; color: #94a3b8; margin-bottom: 24px; font-size: 14px; }
+input, select { width: 100%; padding: 10px 14px; border: 1px solid #334155; border-radius: 8px; background: #0f172a; color: #e2e8f0; font-size: 14px; outline: none; transition: border-color .2s; }
+input:focus, select:focus { border-color: #6366f1; }
+label { display: block; margin-bottom: 6px; font-size: 13px; color: #94a3b8; font-weight: 500; }
+.field { margin-bottom: 16px; }
+button { width: 100%; padding: 10px; border: none; border-radius: 8px; background: #6366f1; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; transition: background .2s; }
+button:hover { background: #4f46e5; }
+button.danger { background: #ef4444; }
+button.danger:hover { background: #dc2626; }
+button.sm { width: auto; padding: 6px 14px; font-size: 13px; }
+.app { display: none; }
+.header { background: #1e293b; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #334155; }
+.header h1 { font-size: 18px; }
+.header .actions { display: flex; gap: 10px; align-items: center; }
+.header button { width: auto; padding: 6px 16px; }
+.container { max-width: 800px; margin: 24px auto; padding: 0 24px; }
+.card { background: #1e293b; border-radius: 12px; padding: 24px; margin-bottom: 20px; border: 1px solid #334155; }
+.card h2 { font-size: 16px; margin-bottom: 16px; color: #f8fafc; display: flex; align-items: center; gap: 8px; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.stat { background: #0f172a; border-radius: 8px; padding: 16px; text-align: center; }
+.stat .val { font-size: 28px; font-weight: 700; color: #6366f1; }
+.stat .lbl { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+.key-list { list-style: none; }
+.key-list li { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #0f172a; border-radius: 6px; margin-bottom: 6px; font-family: monospace; font-size: 13px; }
+.key-list li button { width: auto; padding: 4px 10px; font-size: 12px; }
+.key-add { display: flex; gap: 8px; margin-top: 8px; }
+.key-add input { flex: 1; }
+.key-add button { width: auto; flex-shrink: 0; }
+.toggle { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.toggle input[type=checkbox] { width: 18px; height: 18px; accent-color: #6366f1; }
+.toggle label { margin: 0; cursor: pointer; }
+.msg { padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; }
+.msg.ok { background: #064e3b; color: #6ee7b7; }
+.msg.err { background: #7f1d1d; color: #fca5a5; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- 登录页 -->
+<div class="login-wrap" id="loginView">
+  <div class="login-box">
+    <h1>CCR</h1>
+    <p>Claude Code 请求伪装代理</p>
+    <div id="loginMsg"></div>
+    <div class="field">
+      <label>访问密码</label>
+      <input type="password" id="loginPwd" placeholder="输入管理密码" autofocus>
+    </div>
+    <button onclick="doLogin()">登录</button>
+  </div>
+</div>
+
+<!-- 主面板 -->
+<div class="app" id="appView">
+  <div class="header">
+    <h1>CCR 管理面板</h1>
+    <div class="actions">
+      <button class="sm" onclick="refreshAll()">刷新</button>
+      <button class="sm danger" onclick="doLogout()">退出</button>
+    </div>
+  </div>
+  <div class="container">
+
+    <div id="appMsg"></div>
+
+    <!-- 统计 -->
+    <div class="card">
+      <h2>运行状态</h2>
+      <div class="stats-grid">
+        <div class="stat"><div class="val" id="statTotal">0</div><div class="lbl">总请求</div></div>
+        <div class="stat"><div class="val" id="statOk">0</div><div class="lbl">成功</div></div>
+        <div class="stat"><div class="val" id="statFail">0</div><div class="lbl">失败</div></div>
+        <div class="stat"><div class="val" id="statUptime">0s</div><div class="lbl">运行时长</div></div>
+      </div>
+    </div>
+
+    <!-- 上游配置 -->
+    <div class="card">
+      <h2>上游配置</h2>
+      <div class="field">
+        <label>上游地址</label>
+        <input type="text" id="cfgBaseUrl" placeholder="https://api.anthropic.com">
+      </div>
+      <div class="field">
+        <label>上游密钥</label>
+        <input type="password" id="cfgApiKey" placeholder="sk-ant-xxx">
+      </div>
+      <div class="field">
+        <label>CC 版本号</label>
+        <input type="text" id="cfgVersion" placeholder="2.1.88">
+      </div>
+      <div class="toggle">
+        <input type="checkbox" id="cfgBilling" checked>
+        <label for="cfgBilling">注入 Billing Header</label>
+      </div>
+      <div class="toggle">
+        <input type="checkbox" id="cfgMeta" checked>
+        <label for="cfgMeta">注入 Metadata</label>
+      </div>
+      <button onclick="saveConfig()">保存配置</button>
+    </div>
+
+    <!-- 请求 Key 管理 -->
+    <div class="card">
+      <h2>请求 Key 管理</h2>
+      <p style="font-size:13px;color:#94a3b8;margin-bottom:12px">客户端使用这些 Key 访问代理。留空则不校验 Key。</p>
+      <ul class="key-list" id="keyList"></ul>
+      <div class="key-add">
+        <input type="text" id="newKey" placeholder="输入新的 Key">
+        <button class="sm" onclick="addKey()">添加</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let token = localStorage.getItem('ccr_token') || ''
+let currentConfig = null
+
+// 初始化
+if (token) {
+  checkToken()
+} else {
+  showLogin()
+}
+
+function showLogin() {
+  document.getElementById('loginView').style.display = ''
+  document.getElementById('appView').style.display = 'none'
+}
+
+function showApp() {
+  document.getElementById('loginView').style.display = 'none'
+  document.getElementById('appView').style.display = ''
+  refreshAll()
+}
+
+function showMsg(id, text, ok) {
+  const el = document.getElementById(id)
+  el.innerHTML = `<div class="msg ${ok ? 'ok' : 'err'}">${text}</div>`
+  setTimeout(() => el.innerHTML = '', 3000)
+}
+
+async function api(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } }
+  if (token) opts.headers['Authorization'] = `Bearer ${token}`
+  if (body) opts.body = JSON.stringify(body)
+  const r = await fetch(path, opts)
+  const data = await r.json()
+  if (r.status === 401 && path !== '/admin/api/login') {
+    token = ''
+    localStorage.removeItem('ccr_token')
+    showLogin()
+    return null
+  }
+  return { status: r.status, data }
+}
+
+async function doLogin() {
+  const pwd = document.getElementById('loginPwd').value
+  if (!pwd) return
+  const r = await api('POST', '/admin/api/login', { password: pwd })
+  if (r?.data?.token) {
+    token = r.data.token
+    localStorage.setItem('ccr_token', token)
+    showApp()
+  } else {
+    showMsg('loginMsg', '密码错误', false)
+  }
+}
+
+function doLogout() {
+  token = ''
+  localStorage.removeItem('ccr_token')
+  showLogin()
+}
+
+async function checkToken() {
+  const r = await api('GET', '/admin/api/stats')
+  if (r) showApp()
+  else showLogin()
+}
+
+async function refreshAll() {
+  await Promise.all([loadStats(), loadConfig()])
+}
+
+async function loadStats() {
+  const r = await api('GET', '/admin/api/stats')
+  if (!r) return
+  const s = r.data
+  document.getElementById('statTotal').textContent = s.totalRequests
+  document.getElementById('statOk').textContent = s.successRequests
+  document.getElementById('statFail').textContent = s.failedRequests
+  const sec = Math.floor(s.uptime / 1000)
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  document.getElementById('statUptime').textContent = h > 0 ? `${h}h ${m}m` : `${m}m ${sec % 60}s`
+}
+
+async function loadConfig() {
+  const r = await api('GET', '/admin/api/config')
+  if (!r) return
+  currentConfig = r.data
+  document.getElementById('cfgBaseUrl').value = currentConfig.upstream?.baseUrl || ''
+  document.getElementById('cfgApiKey').value = ''
+  document.getElementById('cfgApiKey').placeholder = currentConfig.upstream?.apiKey || 'sk-ant-xxx'
+  document.getElementById('cfgVersion').value = currentConfig.ccVersion || ''
+  document.getElementById('cfgBilling').checked = currentConfig.options?.injectBillingHeader !== false
+  document.getElementById('cfgMeta').checked = currentConfig.options?.injectMetadata !== false
+  renderKeys(currentConfig.allowedKeys || [])
+}
+
+function renderKeys(keys) {
+  const ul = document.getElementById('keyList')
+  ul.innerHTML = keys.map((k, i) =>
+    `<li><span>${k.length > 20 ? k.slice(0, 8) + '...' + k.slice(-6) : k}</span><button class="sm danger" onclick="removeKey(${i})">删除</button></li>`
+  ).join('')
+}
+
+async function saveConfig() {
+  const update = {
+    upstream: { baseUrl: document.getElementById('cfgBaseUrl').value || 'https://api.anthropic.com' },
+    ccVersion: document.getElementById('cfgVersion').value || '2.1.88',
+    options: {
+      injectBillingHeader: document.getElementById('cfgBilling').checked,
+      injectMetadata: document.getElementById('cfgMeta').checked,
+    }
+  }
+  const keyVal = document.getElementById('cfgApiKey').value
+  if (keyVal) update.upstream.apiKey = keyVal
+  const r = await api('PUT', '/admin/api/config', update)
+  if (r?.data?.message) {
+    showMsg('appMsg', '配置已保存', true)
+    loadConfig()
+  }
+}
+
+async function addKey() {
+  const input = document.getElementById('newKey')
+  const key = input.value.trim()
+  if (!key) return
+  const keys = [...(currentConfig?.allowedKeys || []), key]
+  await api('PUT', '/admin/api/config', { allowedKeys: keys })
+  input.value = ''
+  showMsg('appMsg', 'Key 已添加', true)
+  loadConfig()
+}
+
+async function removeKey(idx) {
+  const keys = [...(currentConfig?.allowedKeys || [])]
+  keys.splice(idx, 1)
+  await api('PUT', '/admin/api/config', { allowedKeys: keys })
+  showMsg('appMsg', 'Key 已删除', true)
+  loadConfig()
+}
+
+// 回车登录
+document.getElementById('loginPwd').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin()
+})
+</script>
+</body>
+</html>
