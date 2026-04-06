@@ -7,7 +7,7 @@
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
-.login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+.login-wrap { align-items: center; justify-content: center; min-height: 100vh; }
 .login-box { background: #1e293b; border-radius: 12px; padding: 40px; width: 360px; box-shadow: 0 4px 24px rgba(0,0,0,.4); }
 .login-box h1 { text-align: center; margin-bottom: 8px; font-size: 24px; color: #f8fafc; }
 .login-box p { text-align: center; color: #94a3b8; margin-bottom: 24px; font-size: 14px; }
@@ -20,7 +20,6 @@ button:hover { background: #4f46e5; }
 button.danger { background: #ef4444; }
 button.danger:hover { background: #dc2626; }
 button.sm { width: auto; padding: 6px 14px; font-size: 13px; }
-.app { display: none; }
 .header { background: #1e293b; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #334155; }
 .header h1 { font-size: 18px; }
 .header .actions { display: flex; gap: 10px; align-items: center; }
@@ -44,7 +43,6 @@ button.sm { width: auto; padding: 6px 14px; font-size: 13px; }
 .msg { padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; }
 .msg.ok { background: #064e3b; color: #6ee7b7; }
 .msg.err { background: #7f1d1d; color: #fca5a5; }
-.hidden { display: none !important; }
 </style>
 </head>
 <body>
@@ -64,7 +62,7 @@ button.sm { width: auto; padding: 6px 14px; font-size: 13px; }
 </div>
 
 <!-- 主面板 -->
-<div class="app" id="appView" style="display:none">
+<div id="appView" style="display:none">
   <div class="header">
     <h1>CCR 管理面板</h1>
     <div class="actions">
@@ -128,36 +126,36 @@ button.sm { width: auto; padding: 6px 14px; font-size: 13px; }
 </div>
 
 <script>
+const loginView = document.getElementById('loginView')
+const appView = document.getElementById('appView')
 let token = localStorage.getItem('ccr_token') || ''
 let currentConfig = null
 
-// 初始化 — 先显示登录页兜底，再异步检查 token
-showLogin()
-if (token) {
-  checkToken()
-}
-
 function showLogin() {
-  document.getElementById('loginView').style.display = ''
-  document.getElementById('appView').style.display = 'none'
+  loginView.style.display = 'flex'
+  appView.style.display = 'none'
 }
 
 function showApp() {
-  document.getElementById('loginView').style.display = 'none'
-  document.getElementById('appView').style.display = ''
+  loginView.style.display = 'none'
+  appView.style.display = 'block'
   refreshAll()
 }
 
+// 初始化：先显示登录页
+showLogin()
+if (token) checkToken()
+
 function showMsg(id, text, ok) {
   const el = document.getElementById(id)
-  el.innerHTML = `<div class="msg ${ok ? 'ok' : 'err'}">${text}</div>`
-  setTimeout(() => el.innerHTML = '', 3000)
+  el.innerHTML = '<div class="msg ' + (ok ? 'ok' : 'err') + '">' + text + '</div>'
+  setTimeout(function() { el.innerHTML = '' }, 3000)
 }
 
 async function api(method, path, body) {
   try {
-    const opts = { method, headers: { 'Content-Type': 'application/json' } }
-    if (token) opts.headers['Authorization'] = `Bearer ${token}`
+    const opts = { method: method, headers: { 'Content-Type': 'application/json' } }
+    if (token) opts.headers['Authorization'] = 'Bearer ' + token
     if (body) opts.body = JSON.stringify(body)
     const r = await fetch(path, opts)
     const data = await r.json()
@@ -167,9 +165,9 @@ async function api(method, path, body) {
       showLogin()
       return null
     }
-    return { status: r.status, data }
+    return { status: r.status, data: data }
   } catch (e) {
-    console.error('[CCR] API 请求失败:', e)
+    console.error('[CCR] API error:', e)
     return null
   }
 }
@@ -178,7 +176,7 @@ async function doLogin() {
   const pwd = document.getElementById('loginPwd').value
   if (!pwd) return
   const r = await api('POST', '/admin/api/login', { password: pwd })
-  if (r?.data?.token) {
+  if (r && r.data && r.data.token) {
     token = r.data.token
     localStorage.setItem('ccr_token', token)
     showApp()
@@ -206,59 +204,64 @@ async function refreshAll() {
 async function loadStats() {
   const r = await api('GET', '/admin/api/stats')
   if (!r) return
-  const s = r.data
+  var s = r.data
   document.getElementById('statTotal').textContent = s.totalRequests
   document.getElementById('statOk').textContent = s.successRequests
   document.getElementById('statFail').textContent = s.failedRequests
-  const sec = Math.floor(s.uptime / 1000)
-  const h = Math.floor(sec / 3600)
-  const m = Math.floor((sec % 3600) / 60)
-  document.getElementById('statUptime').textContent = h > 0 ? `${h}h ${m}m` : `${m}m ${sec % 60}s`
+  var sec = Math.floor(s.uptime / 1000)
+  var h = Math.floor(sec / 3600)
+  var m = Math.floor((sec % 3600) / 60)
+  document.getElementById('statUptime').textContent = h > 0 ? h + 'h ' + m + 'm' : m + 'm ' + (sec % 60) + 's'
 }
 
 async function loadConfig() {
   const r = await api('GET', '/admin/api/config')
   if (!r) return
   currentConfig = r.data
-  document.getElementById('cfgBaseUrl').value = currentConfig.upstream?.baseUrl || ''
+  document.getElementById('cfgBaseUrl').value = (currentConfig.upstream && currentConfig.upstream.baseUrl) || ''
   document.getElementById('cfgApiKey').value = ''
-  document.getElementById('cfgApiKey').placeholder = currentConfig.upstream?.apiKey || 'sk-ant-xxx'
+  document.getElementById('cfgApiKey').placeholder = (currentConfig.upstream && currentConfig.upstream.apiKey) || 'sk-ant-xxx'
   document.getElementById('cfgVersion').value = currentConfig.ccVersion || ''
-  document.getElementById('cfgBilling').checked = currentConfig.options?.injectBillingHeader !== false
-  document.getElementById('cfgMeta').checked = currentConfig.options?.injectMetadata !== false
+  document.getElementById('cfgBilling').checked = !(currentConfig.options && currentConfig.options.injectBillingHeader === false)
+  document.getElementById('cfgMeta').checked = !(currentConfig.options && currentConfig.options.injectMetadata === false)
   renderKeys(currentConfig.allowedKeys || [])
 }
 
 function renderKeys(keys) {
-  const ul = document.getElementById('keyList')
-  ul.innerHTML = keys.map((k, i) =>
-    `<li><span>${k.length > 20 ? k.slice(0, 8) + '...' + k.slice(-6) : k}</span><button class="sm danger" onclick="removeKey(${i})">删除</button></li>`
-  ).join('')
+  var ul = document.getElementById('keyList')
+  var html = ''
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i]
+    var display = k.length > 20 ? k.slice(0, 8) + '...' + k.slice(-6) : k
+    html += '<li><span>' + display + '</span><button class="sm danger" onclick="removeKey(' + i + ')">删除</button></li>'
+  }
+  ul.innerHTML = html
 }
 
 async function saveConfig() {
-  const update = {
+  var update = {
     upstream: { baseUrl: document.getElementById('cfgBaseUrl').value || 'https://api.anthropic.com' },
     ccVersion: document.getElementById('cfgVersion').value || '2.1.88',
     options: {
       injectBillingHeader: document.getElementById('cfgBilling').checked,
-      injectMetadata: document.getElementById('cfgMeta').checked,
+      injectMetadata: document.getElementById('cfgMeta').checked
     }
   }
-  const keyVal = document.getElementById('cfgApiKey').value
+  var keyVal = document.getElementById('cfgApiKey').value
   if (keyVal) update.upstream.apiKey = keyVal
-  const r = await api('PUT', '/admin/api/config', update)
-  if (r?.data?.message) {
+  var r = await api('PUT', '/admin/api/config', update)
+  if (r && r.data && r.data.message) {
     showMsg('appMsg', '配置已保存', true)
     loadConfig()
   }
 }
 
 async function addKey() {
-  const input = document.getElementById('newKey')
-  const key = input.value.trim()
+  var input = document.getElementById('newKey')
+  var key = input.value.trim()
   if (!key) return
-  const keys = [...(currentConfig?.allowedKeys || []), key]
+  var keys = (currentConfig && currentConfig.allowedKeys) ? currentConfig.allowedKeys.slice() : []
+  keys.push(key)
   await api('PUT', '/admin/api/config', { allowedKeys: keys })
   input.value = ''
   showMsg('appMsg', 'Key 已添加', true)
@@ -266,15 +269,14 @@ async function addKey() {
 }
 
 async function removeKey(idx) {
-  const keys = [...(currentConfig?.allowedKeys || [])]
+  var keys = (currentConfig && currentConfig.allowedKeys) ? currentConfig.allowedKeys.slice() : []
   keys.splice(idx, 1)
   await api('PUT', '/admin/api/config', { allowedKeys: keys })
   showMsg('appMsg', 'Key 已删除', true)
   loadConfig()
 }
 
-// 回车登录
-document.getElementById('loginPwd').addEventListener('keydown', e => {
+document.getElementById('loginPwd').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') doLogin()
 })
 </script>
