@@ -55,8 +55,8 @@ export async function handleProxy(req, res) {
       return
     }
 
-    // 4. 注入 CC 特征到 body
-    injectCCBody(body, config.ccVersion, config.options)
+    // 4. 注入 CC 特征到 body（传入 proxyKey 保证同一 key 的亲和性）
+    injectCCBody(body, config.ccVersion, config.options, key)
 
     const outBody = JSON.stringify(body)
 

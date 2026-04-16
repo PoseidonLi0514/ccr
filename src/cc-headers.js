@@ -1,10 +1,14 @@
 import { createHash, randomUUID } from 'crypto'
+import os from 'os'
 
 // CC 指纹盐值（从 CC 源码提取，必须与后端校验一致）
 const FINGERPRINT_SALT = '59cf53e54c78'
 
 // CC 默认版本号
 const DEFAULT_CC_VERSION = '2.1.88'
+
+// Anthropic SDK 版本号（从 CC 依赖的 @anthropic-ai/sdk 提取）
+const SDK_VERSION = '0.74.0'
 
 // anthropic-beta 完整列表（从 CC 源码 constants/betas.ts 提取）
 const BETA_HEADERS = [
@@ -16,6 +20,20 @@ const BETA_HEADERS = [
   'prompt-caching-scope-2026-01-05',
   'redact-thinking-2026-02-12',
 ]
+
+// 为每个请求 key 缓存固定的 device_id 和 session_id（保证亲和性）
+const keyIdentityMap = new Map()
+
+function getOrCreateIdentity(proxyKey) {
+  const k = proxyKey || '__default__'
+  if (keyIdentityMap.has(k)) return keyIdentityMap.get(k)
+  const identity = {
+    deviceId: randomUUID(),
+    sessionId: randomUUID(),
+  }
+  keyIdentityMap.set(k, identity)
+  return identity
+}
 
 /**
  * 计算 3 字符指纹
@@ -38,7 +56,7 @@ export function extractFirstMessageText(messages) {
   if (typeof userMsg.content === 'string') return userMsg.content
   if (Array.isArray(userMsg.content)) {
     const textBlock = userMsg.content.find(b => b.type === 'text')
-    return textBlock?.text || ''
+    return textBlock && textBlock.text ? textBlock.text : ''
   }
   return ''
 }
@@ -51,7 +69,39 @@ export function buildAttributionHeader(version, fingerprint) {
 }
 
 /**
- * 构造 CC 请求头
+ * 构造 X-Stainless-* 系列头（Anthropic SDK 自动注入的平台信息）
+ */
+function buildStainlessHeaders() {
+  const platform = os.platform()
+  const arch = os.arch()
+
+  const normalizeOS = (p) => {
+    if (p === 'darwin') return 'MacOS'
+    if (p === 'win32') return 'Windows'
+    if (p === 'linux') return 'Linux'
+    if (p === 'freebsd') return 'FreeBSD'
+    return 'Other:' + p
+  }
+  const normalizeArch = (a) => {
+    if (a === 'x64') return 'x64'
+    if (a === 'arm64') return 'arm64'
+    if (a === 'arm') return 'arm'
+    if (a === 'x32' || a === 'ia32') return 'x32'
+    return 'other:' + a
+  }
+
+  return {
+    'X-Stainless-Lang': 'js',
+    'X-Stainless-Package-Version': SDK_VERSION,
+    'X-Stainless-OS': normalizeOS(platform),
+    'X-Stainless-Arch': normalizeArch(arch),
+    'X-Stainless-Runtime': 'node',
+    'X-Stainless-Runtime-Version': process.version,
+  }
+}
+
+/**
+ * 构造 CC 请求头（含 Stainless 头）
  */
 export function buildCCHeaders(version) {
   const v = version || DEFAULT_CC_VERSION
@@ -62,26 +112,30 @@ export function buildCCHeaders(version) {
     'x-client-request-id': randomUUID(),
     'anthropic-version': '2023-06-01',
     'anthropic-beta': BETA_HEADERS.join(','),
+    ...buildStainlessHeaders(),
   }
 }
 
 /**
  * 构造 metadata.user_id JSON 字符串
+ * 同一个 proxyKey 始终返回相同的 device_id 和 session_id
+ * 确保 NewAPI 渠道亲和性能正确匹配
  */
-export function buildMetadataUserId(sessionId) {
+export function buildMetadataUserId(proxyKey) {
+  const identity = getOrCreateIdentity(proxyKey)
   return JSON.stringify({
-    device_id: randomUUID(),
+    device_id: identity.deviceId,
     account_uuid: '',
-    session_id: sessionId || randomUUID(),
+    session_id: identity.sessionId,
   })
 }
 
 /**
  * 对请求体注入 CC 特征
- * - 注入 metadata.user_id
+ * - 注入 metadata.user_id（固定，保证亲和性）
  * - 在 system 字段追加 billing header
  */
-export function injectCCBody(body, version, options = {}) {
+export function injectCCBody(body, version, options = {}, proxyKey) {
   const v = version || DEFAULT_CC_VERSION
   const messages = body.messages || []
   const firstText = extractFirstMessageText(messages)
@@ -94,7 +148,7 @@ export function injectCCBody(body, version, options = {}) {
       body.metadata = {}
     }
     if (!body.metadata.user_id) {
-      body.metadata.user_id = buildMetadataUserId()
+      body.metadata.user_id = buildMetadataUserId(proxyKey)
     }
   }
 
@@ -105,7 +159,6 @@ export function injectCCBody(body, version, options = {}) {
         body.system = body.system + '\n' + attribution
       }
     } else if (Array.isArray(body.system)) {
-      // system 为数组格式时，追加一个 text block
       const hasAttr = body.system.some(
         b => typeof b.text === 'string' && b.text.includes('x-anthropic-billing-header')
       )
@@ -113,7 +166,6 @@ export function injectCCBody(body, version, options = {}) {
         body.system.push({ type: 'text', text: '\n' + attribution })
       }
     } else {
-      // system 不存在或为 null
       body.system = attribution
     }
   }
