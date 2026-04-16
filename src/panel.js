@@ -7,9 +7,6 @@ import { getConfig, updateConfig, getStats } from './config.js'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PUBLIC_DIR = join(__dirname, '..', 'public')
 
-/**
- * 读取请求体
- */
 function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = []
@@ -24,17 +21,18 @@ function json(res, status, data) {
   res.end(JSON.stringify(data))
 }
 
-/**
- * 处理管理面板请求
- */
-export async function handlePanel(req, res) {
-  const url = new URL(req.url, 'http://localhost')
-  const path = url.pathname
+function maskKey(k) {
+  if (!k || k.length < 8) return '***'
+  return k.slice(0, 4) + '...' + k.slice(-4)
+}
 
-  // 静态页面
+export async function handlePanel(req, res) {
+  var url = new URL(req.url, 'http://localhost')
+  var path = url.pathname
+
   if (path === '/admin' || path === '/admin/') {
     try {
-      const html = readFileSync(join(PUBLIC_DIR, 'index.html'), 'utf-8')
+      var html = readFileSync(join(PUBLIC_DIR, 'index.html'), 'utf-8')
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
       res.end(html)
     } catch {
@@ -44,49 +42,55 @@ export async function handlePanel(req, res) {
     return
   }
 
-  // 登录
   if (path === '/admin/api/login' && req.method === 'POST') {
-    const body = JSON.parse(await readBody(req))
-    const token = login(body.password)
-    if (token) {
-      json(res, 200, { token })
+    var body = JSON.parse(await readBody(req))
+    var tk = login(body.password)
+    if (tk) {
+      json(res, 200, { token: tk })
     } else {
       json(res, 401, { error: '密码错误' })
     }
     return
   }
 
-  // 以下 API 需要鉴权
-  const token = extractAdminToken(req)
-  if (!verifyAdminToken(token)) {
+  var tk2 = extractAdminToken(req)
+  if (!verifyAdminToken(tk2)) {
     json(res, 401, { error: '未登录或 token 已过期' })
     return
   }
 
-  // 获取配置
   if (path === '/admin/api/config' && req.method === 'GET') {
-    const config = getConfig()
-    // 脱敏上游密钥
-    const safe = {
-      ...config,
-      upstream: {
-        ...config.upstream,
-        apiKey: config.upstream.apiKey ? '***' + config.upstream.apiKey.slice(-6) : '',
-      },
+    var config = getConfig()
+    var safe = {
+      ccVersion: config.ccVersion,
+      options: config.options,
+      upstreams: (config.upstreams || []).map(function(u) {
+        return {
+          id: u.id,
+          name: u.name,
+          baseUrl: u.baseUrl,
+          keys: (u.keys || []).map(function(k) {
+            return {
+              id: k.id,
+              upstreamKey: maskKey(k.upstreamKey),
+              customKey: k.customKey || '',
+              _hasUpstreamKey: !!k.upstreamKey,
+            }
+          }),
+        }
+      }),
     }
     json(res, 200, safe)
     return
   }
 
-  // 更新配置
   if (path === '/admin/api/config' && req.method === 'PUT') {
-    const body = JSON.parse(await readBody(req))
-    const updated = updateConfig(body)
-    json(res, 200, { message: '配置已更新', config: updated })
+    var body2 = JSON.parse(await readBody(req))
+    var updated = updateConfig(body2)
+    json(res, 200, { message: '配置已更新' })
     return
   }
 
-  // 获取统计
   if (path === '/admin/api/stats' && req.method === 'GET') {
     json(res, 200, getStats())
     return

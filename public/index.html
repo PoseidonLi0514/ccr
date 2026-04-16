@@ -20,34 +20,41 @@ button:hover { background: #4f46e5; }
 button.danger { background: #ef4444; }
 button.danger:hover { background: #dc2626; }
 button.sm { width: auto; padding: 6px 14px; font-size: 13px; }
+button.ghost { background: transparent; border: 1px solid #334155; color: #94a3b8; }
+button.ghost:hover { border-color: #6366f1; color: #e2e8f0; }
 .header { background: #1e293b; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #334155; }
 .header h1 { font-size: 18px; }
 .header .actions { display: flex; gap: 10px; align-items: center; }
 .header button { width: auto; padding: 6px 16px; }
-.container { max-width: 800px; margin: 24px auto; padding: 0 24px; }
+.container { max-width: 860px; margin: 24px auto; padding: 0 24px; }
 .card { background: #1e293b; border-radius: 12px; padding: 24px; margin-bottom: 20px; border: 1px solid #334155; }
 .card h2 { font-size: 16px; margin-bottom: 16px; color: #f8fafc; display: flex; align-items: center; gap: 8px; }
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
 .stat { background: #0f172a; border-radius: 8px; padding: 16px; text-align: center; }
 .stat .val { font-size: 28px; font-weight: 700; color: #6366f1; }
 .stat .lbl { font-size: 12px; color: #94a3b8; margin-top: 4px; }
-.key-list { list-style: none; }
-.key-list li { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #0f172a; border-radius: 6px; margin-bottom: 6px; font-family: monospace; font-size: 13px; }
-.key-list li button { width: auto; padding: 4px 10px; font-size: 12px; }
-.key-add { display: flex; gap: 8px; margin-top: 8px; }
-.key-add input { flex: 1; }
-.key-add button { width: auto; flex-shrink: 0; }
 .toggle { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .toggle input[type=checkbox] { width: 18px; height: 18px; accent-color: #6366f1; }
 .toggle label { margin: 0; cursor: pointer; }
 .msg { padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; }
 .msg.ok { background: #064e3b; color: #6ee7b7; }
 .msg.err { background: #7f1d1d; color: #fca5a5; }
+.ep { background: #0f172a; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+.ep-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.ep-head input { flex: 1; }
+.ep-head button { width: auto; flex-shrink: 0; }
+.ep-url { margin-bottom: 12px; }
+.krow { display: flex; gap: 8px; align-items: center; padding: 8px 10px; background: #1e293b; border-radius: 6px; margin-bottom: 6px; }
+.krow input { flex: 1; font-size: 13px; padding: 7px 10px; }
+.krow button { width: auto; flex-shrink: 0; padding: 5px 10px; font-size: 12px; }
+.krow .arrow { color: #6366f1; font-size: 16px; flex-shrink: 0; padding: 0 4px; }
+.add-row { display: flex; gap: 8px; margin-top: 8px; }
+.add-row button { width: auto; }
+.hint { font-size: 12px; color: #64748b; margin-top: -4px; margin-bottom: 10px; }
 </style>
 </head>
 <body>
 
-<!-- 登录页 -->
 <div class="login-wrap" id="loginView" style="display:none">
   <div class="login-box">
     <h1>CCR</h1>
@@ -61,7 +68,6 @@ button.sm { width: auto; padding: 6px 14px; font-size: 13px; }
   </div>
 </div>
 
-<!-- 主面板 -->
 <div id="appView" style="display:none">
   <div class="header">
     <h1>CCR 管理面板</h1>
@@ -71,10 +77,8 @@ button.sm { width: auto; padding: 6px 14px; font-size: 13px; }
     </div>
   </div>
   <div class="container">
-
     <div id="appMsg"></div>
 
-    <!-- 统计 -->
     <div class="card">
       <h2>运行状态</h2>
       <div class="stats-grid">
@@ -85,17 +89,8 @@ button.sm { width: auto; padding: 6px 14px; font-size: 13px; }
       </div>
     </div>
 
-    <!-- 上游配置 -->
     <div class="card">
-      <h2>上游配置</h2>
-      <div class="field">
-        <label>上游地址</label>
-        <input type="text" id="cfgBaseUrl" placeholder="https://api.anthropic.com">
-      </div>
-      <div class="field">
-        <label>上游密钥</label>
-        <input type="password" id="cfgApiKey" placeholder="sk-ant-xxx">
-      </div>
+      <h2>通用设置</h2>
       <div class="field">
         <label>CC 版本号</label>
         <input type="text" id="cfgVersion" placeholder="2.1.88">
@@ -104,177 +99,191 @@ button.sm { width: auto; padding: 6px 14px; font-size: 13px; }
         <input type="checkbox" id="cfgBilling" checked>
         <label for="cfgBilling">覆写 System 字段</label>
       </div>
-      <p style="font-size:12px;color:#64748b;margin:-4px 0 10px 28px">在 system 提示词中注入计费归属头，关闭后不修改发送给模型的内容</p>
+      <p class="hint" style="margin-left:28px">在 system 提示词中注入计费归属头</p>
       <div class="toggle">
         <input type="checkbox" id="cfgMeta" checked>
         <label for="cfgMeta">注入 Metadata</label>
       </div>
-      <button onclick="saveConfig()">保存配置</button>
+      <button onclick="saveGlobal()">保存设置</button>
     </div>
 
-    <!-- 请求 Key 管理 -->
     <div class="card">
-      <h2>请求 Key 管理</h2>
-      <p style="font-size:13px;color:#94a3b8;margin-bottom:12px">客户端使用这些 Key 访问代理。留空则不校验 Key。</p>
-      <ul class="key-list" id="keyList"></ul>
-      <div class="key-add">
-        <input type="text" id="newKey" placeholder="输入新的 Key">
-        <button class="sm" onclick="addKey()">添加</button>
-      </div>
+      <h2>上游端点管理</h2>
+      <p class="hint" style="margin-bottom:12px">每个端点一个上游地址，下挂多个上游密钥。自定义 Key 用于客户端访问代理时的映射，留空则直接用上游密钥访问。</p>
+      <div id="epList"></div>
+      <button class="ghost" onclick="addEndpoint()">+ 添加端点</button>
     </div>
 
   </div>
 </div>
 
 <script>
-const loginView = document.getElementById('loginView')
-const appView = document.getElementById('appView')
-let token = localStorage.getItem('ccr_token') || ''
-let currentConfig = null
+var loginView = document.getElementById('loginView')
+var appView = document.getElementById('appView')
+var token = localStorage.getItem('ccr_token') || ''
+var currentConfig = null
 
-function showLogin() {
-  loginView.style.display = 'flex'
-  appView.style.display = 'none'
-}
-
-function showApp() {
-  loginView.style.display = 'none'
-  appView.style.display = 'block'
-  refreshAll()
-}
-
-// 初始化：先显示登录页
+function showLogin() { loginView.style.display = 'flex'; appView.style.display = 'none' }
+function showApp() { loginView.style.display = 'none'; appView.style.display = 'block'; refreshAll() }
 showLogin()
 if (token) checkToken()
 
 function showMsg(id, text, ok) {
-  const el = document.getElementById(id)
+  var el = document.getElementById(id)
   el.innerHTML = '<div class="msg ' + (ok ? 'ok' : 'err') + '">' + text + '</div>'
   setTimeout(function() { el.innerHTML = '' }, 3000)
 }
 
-async function api(method, path, body) {
-  try {
-    const opts = { method: method, headers: { 'Content-Type': 'application/json' } }
-    if (token) opts.headers['Authorization'] = 'Bearer ' + token
-    if (body) opts.body = JSON.stringify(body)
-    const r = await fetch(path, opts)
-    const data = await r.json()
-    if (r.status === 401 && path !== '/admin/api/login') {
-      token = ''
-      localStorage.removeItem('ccr_token')
-      showLogin()
-      return null
-    }
-    return { status: r.status, data: data }
-  } catch (e) {
-    console.error('[CCR] API error:', e)
-    return null
-  }
+function api(method, path, body) {
+  var opts = { method: method, headers: { 'Content-Type': 'application/json' } }
+  if (token) opts.headers['Authorization'] = 'Bearer ' + token
+  if (body) opts.body = JSON.stringify(body)
+  return fetch(path, opts).then(function(r) {
+    return r.json().then(function(data) {
+      if (r.status === 401 && path !== '/admin/api/login') {
+        token = ''; localStorage.removeItem('ccr_token'); showLogin(); return null
+      }
+      return { status: r.status, data: data }
+    })
+  }).catch(function(e) { console.error('[CCR]', e); return null })
 }
 
-async function doLogin() {
-  const pwd = document.getElementById('loginPwd').value
+function doLogin() {
+  var pwd = document.getElementById('loginPwd').value
   if (!pwd) return
-  const r = await api('POST', '/admin/api/login', { password: pwd })
-  if (r && r.data && r.data.token) {
-    token = r.data.token
-    localStorage.setItem('ccr_token', token)
-    showApp()
-  } else {
-    showMsg('loginMsg', '密码错误', false)
-  }
+  api('POST', '/admin/api/login', { password: pwd }).then(function(r) {
+    if (r && r.data && r.data.token) {
+      token = r.data.token; localStorage.setItem('ccr_token', token); showApp()
+    } else { showMsg('loginMsg', '密码错误', false) }
+  })
+}
+function doLogout() { token = ''; localStorage.removeItem('ccr_token'); showLogin() }
+function checkToken() { api('GET', '/admin/api/stats').then(function(r) { if (r) showApp(); else showLogin() }) }
+function refreshAll() { loadStats(); loadConfig() }
+
+function loadStats() {
+  api('GET', '/admin/api/stats').then(function(r) {
+    if (!r) return
+    var s = r.data
+    document.getElementById('statTotal').textContent = s.totalRequests
+    document.getElementById('statOk').textContent = s.successRequests
+    document.getElementById('statFail').textContent = s.failedRequests
+    var sec = Math.floor(s.uptime / 1000)
+    var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60)
+    document.getElementById('statUptime').textContent = h > 0 ? h + 'h ' + m + 'm' : m + 'm ' + (sec % 60) + 's'
+  })
 }
 
-function doLogout() {
-  token = ''
-  localStorage.removeItem('ccr_token')
-  showLogin()
+function loadConfig() {
+  api('GET', '/admin/api/config').then(function(r) {
+    if (!r) return
+    currentConfig = r.data
+    document.getElementById('cfgVersion').value = currentConfig.ccVersion || ''
+    var opts = currentConfig.options || {}
+    document.getElementById('cfgBilling').checked = opts.injectBillingHeader !== false
+    document.getElementById('cfgMeta').checked = opts.injectMetadata !== false
+    renderEndpoints()
+  })
 }
 
-async function checkToken() {
-  const r = await api('GET', '/admin/api/stats')
-  if (r) showApp()
-  else showLogin()
-}
-
-async function refreshAll() {
-  await Promise.all([loadStats(), loadConfig()])
-}
-
-async function loadStats() {
-  const r = await api('GET', '/admin/api/stats')
-  if (!r) return
-  var s = r.data
-  document.getElementById('statTotal').textContent = s.totalRequests
-  document.getElementById('statOk').textContent = s.successRequests
-  document.getElementById('statFail').textContent = s.failedRequests
-  var sec = Math.floor(s.uptime / 1000)
-  var h = Math.floor(sec / 3600)
-  var m = Math.floor((sec % 3600) / 60)
-  document.getElementById('statUptime').textContent = h > 0 ? h + 'h ' + m + 'm' : m + 'm ' + (sec % 60) + 's'
-}
-
-async function loadConfig() {
-  const r = await api('GET', '/admin/api/config')
-  if (!r) return
-  currentConfig = r.data
-  document.getElementById('cfgBaseUrl').value = (currentConfig.upstream && currentConfig.upstream.baseUrl) || ''
-  document.getElementById('cfgApiKey').value = ''
-  document.getElementById('cfgApiKey').placeholder = (currentConfig.upstream && currentConfig.upstream.apiKey) || 'sk-ant-xxx'
-  document.getElementById('cfgVersion').value = currentConfig.ccVersion || ''
-  document.getElementById('cfgBilling').checked = !(currentConfig.options && currentConfig.options.injectBillingHeader === false)
-  document.getElementById('cfgMeta').checked = !(currentConfig.options && currentConfig.options.injectMetadata === false)
-  renderKeys(currentConfig.allowedKeys || [])
-}
-
-function renderKeys(keys) {
-  var ul = document.getElementById('keyList')
-  var html = ''
-  for (var i = 0; i < keys.length; i++) {
-    var k = keys[i]
-    var display = k.length > 20 ? k.slice(0, 8) + '...' + k.slice(-6) : k
-    html += '<li><span>' + display + '</span><button class="sm danger" onclick="removeKey(' + i + ')">删除</button></li>'
-  }
-  ul.innerHTML = html
-}
-
-async function saveConfig() {
-  var update = {
-    upstream: { baseUrl: document.getElementById('cfgBaseUrl').value || 'https://api.anthropic.com' },
+function saveGlobal() {
+  api('PUT', '/admin/api/config', {
     ccVersion: document.getElementById('cfgVersion').value || '2.1.88',
     options: {
       injectBillingHeader: document.getElementById('cfgBilling').checked,
       injectMetadata: document.getElementById('cfgMeta').checked
     }
-  }
-  var keyVal = document.getElementById('cfgApiKey').value
-  if (keyVal) update.upstream.apiKey = keyVal
-  var r = await api('PUT', '/admin/api/config', update)
-  if (r && r.data && r.data.message) {
-    showMsg('appMsg', '配置已保存', true)
-    loadConfig()
-  }
+  }).then(function(r) {
+    if (r) { showMsg('appMsg', '设置已保存', true); loadConfig() }
+  })
 }
 
-async function addKey() {
-  var input = document.getElementById('newKey')
-  var key = input.value.trim()
-  if (!key) return
-  var keys = (currentConfig && currentConfig.allowedKeys) ? currentConfig.allowedKeys.slice() : []
-  keys.push(key)
-  await api('PUT', '/admin/api/config', { allowedKeys: keys })
-  input.value = ''
-  showMsg('appMsg', 'Key 已添加', true)
-  loadConfig()
+function genId() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36) }
+
+// 端点编辑用的本地副本（带完整 key 值）
+var localUpstreams = []
+
+function renderEndpoints() {
+  var ups = (currentConfig && currentConfig.upstreams) || []
+  // 首次加载或刷新时同步到 localUpstreams
+  localUpstreams = ups.map(function(u) {
+    return {
+      id: u.id, name: u.name || '', baseUrl: u.baseUrl || '',
+      keys: (u.keys || []).map(function(k) {
+        return { id: k.id, upstreamKey: k.upstreamKey || '', customKey: k.customKey || '', _hasUpstreamKey: k._hasUpstreamKey }
+      })
+    }
+  })
+  drawEndpoints()
 }
 
-async function removeKey(idx) {
-  var keys = (currentConfig && currentConfig.allowedKeys) ? currentConfig.allowedKeys.slice() : []
-  keys.splice(idx, 1)
-  await api('PUT', '/admin/api/config', { allowedKeys: keys })
-  showMsg('appMsg', 'Key 已删除', true)
-  loadConfig()
+function drawEndpoints() {
+  var container = document.getElementById('epList')
+  var html = ''
+  for (var i = 0; i < localUpstreams.length; i++) {
+    var u = localUpstreams[i]
+    html += '<div class="ep" data-idx="' + i + '">'
+    html += '<div class="ep-head">'
+    html += '<input type="text" value="' + esc(u.name) + '" placeholder="端点名称" onchange="epName(' + i + ',this.value)">'
+    html += '<button class="sm danger" onclick="removeEp(' + i + ')">删除端点</button>'
+    html += '</div>'
+    html += '<div class="ep-url"><label>上游地址</label>'
+    html += '<input type="text" value="' + esc(u.baseUrl) + '" placeholder="https://api.anthropic.com" onchange="epUrl(' + i + ',this.value)">'
+    html += '</div>'
+    html += '<label style="margin-bottom:8px">密钥列表</label>'
+    for (var j = 0; j < u.keys.length; j++) {
+      var k = u.keys[j]
+      html += '<div class="krow">'
+      html += '<input type="password" value="' + esc(k.upstreamKey) + '" placeholder="上游密钥" onchange="epKey(' + i + ',' + j + ',\'up\',this.value)">'
+      html += '<span class="arrow">&rarr;</span>'
+      html += '<input type="text" value="' + esc(k.customKey) + '" placeholder="自定义 Key（留空=直接映射）" onchange="epKey(' + i + ',' + j + ',\'ck\',this.value)">'
+      html += '<button class="sm danger" onclick="removeKey(' + i + ',' + j + ')">删</button>'
+      html += '</div>'
+    }
+    html += '<div class="add-row"><button class="sm ghost" onclick="addKeyToEp(' + i + ')">+ 添加密钥</button></div>'
+    html += '</div>'
+  }
+  container.innerHTML = html
+}
+
+function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;') }
+
+function epName(i, v) { localUpstreams[i].name = v; saveUpstreams() }
+function epUrl(i, v) { localUpstreams[i].baseUrl = v; saveUpstreams() }
+function epKey(i, j, field, v) {
+  if (field === 'up') localUpstreams[i].keys[j].upstreamKey = v
+  else localUpstreams[i].keys[j].customKey = v
+  saveUpstreams()
+}
+function removeKey(i, j) { localUpstreams[i].keys.splice(j, 1); drawEndpoints(); saveUpstreams() }
+function addKeyToEp(i) {
+  localUpstreams[i].keys.push({ id: genId(), upstreamKey: '', customKey: '' })
+  drawEndpoints()
+}
+function addEndpoint() {
+  localUpstreams.push({ id: genId(), name: '', baseUrl: '', keys: [{ id: genId(), upstreamKey: '', customKey: '' }] })
+  drawEndpoints()
+}
+function removeEp(i) { localUpstreams.splice(i, 1); drawEndpoints(); saveUpstreams() }
+
+function saveUpstreams() {
+  // 清理掉脱敏占位符（如果用户没改上游密钥，保留服务端原值）
+  var clean = localUpstreams.map(function(u) {
+    return {
+      id: u.id, name: u.name, baseUrl: u.baseUrl,
+      keys: u.keys.map(function(k) {
+        var obj = { id: k.id, customKey: k.customKey }
+        // 如果值包含 ... 说明是脱敏值，不发送（服务端保留原值）
+        if (k.upstreamKey && k.upstreamKey.indexOf('...') === -1) {
+          obj.upstreamKey = k.upstreamKey
+        }
+        return obj
+      })
+    }
+  })
+  api('PUT', '/admin/api/config', { upstreams: clean }).then(function(r) {
+    if (r) showMsg('appMsg', '端点已保存', true)
+  })
 }
 
 document.getElementById('loginPwd').addEventListener('keydown', function(e) {
