@@ -9,7 +9,7 @@ const DEFAULT_CONFIG = {
   // 上游端点列表：每个端点一个 baseUrl + 多个 keys
   // upstreams: [{ id, baseUrl, name, keys: [{ id, upstreamKey, customKey }] }]
   upstreams: [],
-  ccVersion: '2.1.88',
+  ccVersion: '2.1.111',
   options: {
     injectBillingHeader: true,
     injectMetadata: true,

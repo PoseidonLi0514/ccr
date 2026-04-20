@@ -93,7 +93,7 @@ button.ghost:hover { border-color: #6366f1; color: #e2e8f0; }
       <h2>通用设置</h2>
       <div class="field">
         <label>CC 版本号</label>
-        <input type="text" id="cfgVersion" placeholder="2.1.88">
+        <input type="text" id="cfgVersion" placeholder="2.1.111">
       </div>
       <div class="toggle">
         <input type="checkbox" id="cfgBilling" checked>
@@ -188,7 +188,7 @@ function loadConfig() {
 
 function saveGlobal() {
   api('PUT', '/admin/api/config', {
-    ccVersion: document.getElementById('cfgVersion').value || '2.1.88',
+    ccVersion: document.getElementById('cfgVersion').value || '2.1.111',
     options: {
       injectBillingHeader: document.getElementById('cfgBilling').checked,
       injectMetadata: document.getElementById('cfgMeta').checked

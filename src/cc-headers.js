@@ -4,19 +4,19 @@ import os from 'os'
 // CC 指纹盐值（从 CC 源码提取，必须与后端校验一致）
 const FINGERPRINT_SALT = '59cf53e54c78'
 
-// CC 默认版本号
-const DEFAULT_CC_VERSION = '2.1.88'
+// CC 默认版本号（与最新 CC 保持同步）
+const DEFAULT_CC_VERSION = '2.1.111'
 
 // Anthropic SDK 版本号（从 CC 依赖的 @anthropic-ai/sdk 提取）
 const SDK_VERSION = '0.74.0'
 
-// anthropic-beta 完整列表（从 CC 源码 constants/betas.ts 提取）
+// anthropic-beta 完整列表（从 CC 源码 utils/betas.ts getAllModelBetas 提取）
+// 仅包含 firstParty + 非 haiku + 非 ant 用户的标准 beta 集合
 const BETA_HEADERS = [
   'claude-code-20250219',
   'interleaved-thinking-2025-05-14',
   'context-1m-2025-08-07',
   'context-management-2025-06-27',
-  'effort-2025-11-24',
   'prompt-caching-scope-2026-01-05',
   'redact-thinking-2026-02-12',
 ]
@@ -28,7 +28,8 @@ function getOrCreateIdentity(proxyKey) {
   const k = proxyKey || '__default__'
   if (keyIdentityMap.has(k)) return keyIdentityMap.get(k)
   const identity = {
-    deviceId: randomUUID(),
+    // device_id 使用 64 位十六进制哈希（与真实 CC 一致）
+    deviceId: createHash('sha256').update(randomUUID()).digest('hex'),
     sessionId: randomUUID(),
   }
   keyIdentityMap.set(k, identity)
@@ -62,10 +63,21 @@ export function extractFirstMessageText(messages) {
 }
 
 /**
- * 构造 x-anthropic-billing-header 字符串
+ * 计算 cch 校验值
+ * 基于请求体内容生成 5 位十六进制哈希，模拟 Bun Attestation.zig 的行为
  */
-export function buildAttributionHeader(version, fingerprint) {
-  return `x-anthropic-billing-header: cc_version=${version}.${fingerprint}; cc_entrypoint=cli;`
+export function computeCCH(bodyString) {
+  const hash = createHash('sha256').update(bodyString || '').digest('hex')
+  return hash.slice(0, 5)
+}
+
+/**
+ * 构造 x-anthropic-billing-header 字符串
+ * 格式与最新 CC 一致：cc_version + cc_entrypoint + cch
+ */
+export function buildAttributionHeader(version, fingerprint, cch) {
+  const cchPart = cch ? ` cch=${cch};` : ''
+  return `x-anthropic-billing-header: cc_version=${version}.${fingerprint}; cc_entrypoint=cli;${cchPart}`
 }
 
 /**
@@ -133,14 +145,16 @@ export function buildMetadataUserId(proxyKey) {
 /**
  * 对请求体注入 CC 特征
  * - 注入 metadata.user_id（固定，保证亲和性）
- * - 在 system 字段追加 billing header
+ * - 在 system 字段追加 billing header（含 cch 占位符）
+ * 返回 { body, cchPlaceholder } 以便序列化后替换 cch
  */
 export function injectCCBody(body, version, options = {}, proxyKey) {
   const v = version || DEFAULT_CC_VERSION
   const messages = body.messages || []
   const firstText = extractFirstMessageText(messages)
   const fingerprint = computeFingerprint(firstText, v)
-  const attribution = buildAttributionHeader(v, fingerprint)
+  // 先用占位符 00000，序列化后再替换为真实 cch
+  const attribution = buildAttributionHeader(v, fingerprint, '00000')
 
   // 注入 metadata
   if (options.injectMetadata !== false) {
@@ -171,6 +185,15 @@ export function injectCCBody(body, version, options = {}, proxyKey) {
   }
 
   return body
+}
+
+/**
+ * 序列化请求体后，计算 cch 并替换占位符
+ */
+export function finalizeCCH(bodyString) {
+  if (!bodyString.includes('cch=00000')) return bodyString
+  const cch = computeCCH(bodyString)
+  return bodyString.replace('cch=00000', 'cch=' + cch)
 }
 
 export { DEFAULT_CC_VERSION, BETA_HEADERS }

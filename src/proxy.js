@@ -1,4 +1,4 @@
-import { buildCCHeaders, injectCCBody } from './cc-headers.js'
+import { buildCCHeaders, injectCCBody, finalizeCCH } from './cc-headers.js'
 import { getConfig, recordRequest, resolveUpstream } from './config.js'
 import { extractProxyKey } from './auth.js'
 
@@ -53,9 +53,10 @@ export async function handleProxy(req, res) {
     // 3. 注入 CC 特征到 body（identityKey 确保同一上游 key 的亲和性）
     injectCCBody(body, config.ccVersion, config.options, upstream.identityKey)
 
-    const outBody = JSON.stringify(body)
+    // 4. 序列化后计算 cch 并替换占位符
+    const outBody = finalizeCCH(JSON.stringify(body))
 
-    // 4. 构造上游请求头
+    // 5. 构造上游请求头
     const ccHeaders = buildCCHeaders(config.ccVersion)
     const upstreamUrl = new URL(req.url, upstream.baseUrl)
 
