@@ -57,8 +57,11 @@ export async function handleProxy(req, res) {
     const outBody = finalizeCCH(JSON.stringify(body))
 
     // 5. 构造上游请求头
-    const ccHeaders = buildCCHeaders(config.ccVersion)
+    const ccHeaders = buildCCHeaders(config.ccVersion, upstream.identityKey)
     const upstreamUrl = new URL(req.url, upstream.baseUrl)
+    if (!upstreamUrl.searchParams.has('beta')) {
+      upstreamUrl.searchParams.set('beta', 'true')
+    }
 
     const upstreamHeaders = {
       'Content-Type': 'application/json',

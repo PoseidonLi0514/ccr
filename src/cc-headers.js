@@ -5,20 +5,17 @@ import os from 'os'
 const FINGERPRINT_SALT = '59cf53e54c78'
 
 // CC 默认版本号（与最新 CC 保持同步）
-const DEFAULT_CC_VERSION = '2.1.111'
+const DEFAULT_CC_VERSION = '2.1.117'
 
 // Anthropic SDK 版本号（从 CC 依赖的 @anthropic-ai/sdk 提取）
-const SDK_VERSION = '0.74.0'
+const SDK_VERSION = '0.81.0'
 
-// anthropic-beta 完整列表（从 CC 源码 utils/betas.ts getAllModelBetas 提取）
-// 仅包含 firstParty + 非 haiku + 非 ant 用户的标准 beta 集合
+// anthropic-beta 列表（顺序与真实 CC 2.1.117 请求一致）
 const BETA_HEADERS = [
-  'claude-code-20250219',
   'interleaved-thinking-2025-05-14',
-  'context-1m-2025-08-07',
   'context-management-2025-06-27',
   'prompt-caching-scope-2026-01-05',
-  'redact-thinking-2026-02-12',
+  'claude-code-20250219',
 ]
 
 // 为每个请求 key 缓存固定的 device_id 和 session_id（保证亲和性）
@@ -109,20 +106,23 @@ function buildStainlessHeaders() {
     'X-Stainless-Arch': normalizeArch(arch),
     'X-Stainless-Runtime': 'node',
     'X-Stainless-Runtime-Version': process.version,
+    'X-Stainless-Retry-Count': '0',
+    'X-Stainless-Timeout': '600',
   }
 }
 
 /**
  * 构造 CC 请求头（含 Stainless 头）
  */
-export function buildCCHeaders(version) {
+export function buildCCHeaders(version, proxyKey) {
   const v = version || DEFAULT_CC_VERSION
+  const identity = getOrCreateIdentity(proxyKey)
   return {
-    'User-Agent': `claude-cli/${v} (consumer, cli)`,
+    'User-Agent': `claude-cli/${v} (external, cli)`,
     'x-app': 'cli',
-    'X-Claude-Code-Session-Id': randomUUID(),
-    'x-client-request-id': randomUUID(),
+    'X-Claude-Code-Session-Id': identity.sessionId,
     'anthropic-version': '2023-06-01',
+    'anthropic-dangerous-direct-browser-access': 'true',
     'anthropic-beta': BETA_HEADERS.join(','),
     ...buildStainlessHeaders(),
   }
