@@ -9,7 +9,7 @@ const DEFAULT_CONFIG = {
   // 上游端点列表：每个端点一个 baseUrl + 多个 keys
   // upstreams: [{ id, baseUrl, name, keys: [{ id, upstreamKey, customKey }] }]
   upstreams: [],
-  ccVersion: '2.1.111',
+  ccVersion: '2.1.117',
   options: {
     injectBillingHeader: true,
     injectMetadata: true,
@@ -79,7 +79,8 @@ export function loadConfig() {
     } else {
       configCache = normalize({ ...DEFAULT_CONFIG })
     }
-  } catch {
+  } catch (err) {
+    console.error('[config] 加载配置失败，使用默认值:', err.message, '路径:', CONFIG_PATH)
     configCache = normalize({ ...DEFAULT_CONFIG })
   }
   return configCache

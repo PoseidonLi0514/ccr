@@ -2,6 +2,7 @@ module.exports = {
   apps: [{
     name: 'ccr',
     script: 'src/index.js',
+    cwd: __dirname,
     env: {
       NODE_ENV: 'production',
       CCR_PORT: 8787,
