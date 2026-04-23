@@ -169,18 +169,18 @@ export function injectCCBody(body, version, options = {}, proxyKey) {
     }
   }
 
-  // 注入 billing header 到 system 字段
+  // 注入 billing header 到 system 字段（插入最前面，不带 cache_control，与真实 CC 一致）
   if (options.injectBillingHeader !== false) {
     if (typeof body.system === 'string' && body.system.length > 0) {
       if (!body.system.includes('x-anthropic-billing-header')) {
-        body.system = body.system + '\n' + attribution
+        body.system = attribution + '\n' + body.system
       }
     } else if (Array.isArray(body.system)) {
       const hasAttr = body.system.some(
         b => typeof b.text === 'string' && b.text.includes('x-anthropic-billing-header')
       )
       if (!hasAttr) {
-        body.system.push({ type: 'text', text: '\n' + attribution })
+        body.system.unshift({ type: 'text', text: attribution })
       }
     } else {
       body.system = attribution
