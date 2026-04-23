@@ -12,7 +12,7 @@ const DEFAULT_CONFIG = {
   ccVersion: '2.1.117',
   options: {
     injectBillingHeader: true,
-    injectMetadata: true,
+    injectMetadata: false,
   },
 }
 
