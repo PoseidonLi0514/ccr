@@ -12,10 +12,11 @@ const SDK_VERSION = '0.81.0'
 
 // anthropic-beta 列表（顺序与真实 CC 2.1.117 请求一致）
 const BETA_HEADERS = [
+  'claude-code-20250219',
   'interleaved-thinking-2025-05-14',
   'context-management-2025-06-27',
   'prompt-caching-scope-2026-01-05',
-  'claude-code-20250219',
+  'effort-2025-11-24',
 ]
 
 // 为每个请求 key 缓存固定的 device_id 和 session_id（保证亲和性）
@@ -119,6 +120,8 @@ export function buildCCHeaders(version, proxyKey) {
   const identity = getOrCreateIdentity(proxyKey)
   return {
     'User-Agent': `claude-cli/${v} (external, cli)`,
+    'Accept': 'application/json',
+    'Accept-Encoding': 'gzip, deflate, br, zstd',
     'x-app': 'cli',
     'X-Claude-Code-Session-Id': identity.sessionId,
     'anthropic-version': '2023-06-01',
