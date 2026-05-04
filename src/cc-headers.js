@@ -19,7 +19,9 @@ const BETA_HEADERS = [
   'effort-2025-11-24',
 ]
 
-// 为每个请求 key 缓存固定的 device_id 和 session_id（保证亲和性）
+// CC 身份声明（与真实 CC system prompt 第二个 block 一致）
+const CC_IDENTITY_PROMPT = "You are Claude Code, Anthropic's official CLI for Claude."
+
 const keyIdentityMap = new Map()
 
 function getOrCreateIdentity(proxyKey) {
@@ -184,6 +186,23 @@ export function injectCCBody(body, version, options = {}, proxyKey) {
       }
     } else {
       body.system = attribution
+    }
+  }
+
+  // 注入 CC 身份声明到 system 字段（带 cache_control，与真实 CC 一致）
+  if (options.injectIdentityPrompt) {
+    const identityBlock = { type: 'text', text: CC_IDENTITY_PROMPT, cache_control: { type: 'ephemeral' } }
+    if (Array.isArray(body.system)) {
+      const hasIdentity = body.system.some(
+        b => typeof b.text === 'string' && b.text.includes('You are Claude Code')
+      )
+      if (!hasIdentity) {
+        body.system.push(identityBlock)
+      }
+    } else if (typeof body.system === 'string' && body.system.length > 0) {
+      body.system = [{ type: 'text', text: body.system }, identityBlock]
+    } else if (!body.system) {
+      body.system = [identityBlock]
     }
   }
 

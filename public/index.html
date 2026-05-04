@@ -104,6 +104,11 @@ button.ghost:hover { border-color: #6366f1; color: #e2e8f0; }
         <input type="checkbox" id="cfgMeta" checked>
         <label for="cfgMeta">注入 Metadata</label>
       </div>
+      <div class="toggle">
+        <input type="checkbox" id="cfgIdentity">
+        <label for="cfgIdentity">注入 CC 身份声明</label>
+      </div>
+      <p class="hint" style="margin-left:28px">在 system 中注入 "You are Claude Code" 标识，部分中转站依赖此字段验证 CC 客户端</p>
       <button onclick="saveGlobal()">保存设置</button>
     </div>
 
@@ -182,6 +187,7 @@ function loadConfig() {
     var opts = currentConfig.options || {}
     document.getElementById('cfgBilling').checked = opts.injectBillingHeader !== false
     document.getElementById('cfgMeta').checked = opts.injectMetadata !== false
+    document.getElementById('cfgIdentity').checked = !!opts.injectIdentityPrompt
     renderEndpoints()
   })
 }
@@ -191,7 +197,8 @@ function saveGlobal() {
     ccVersion: document.getElementById('cfgVersion').value || '2.1.117',
     options: {
       injectBillingHeader: document.getElementById('cfgBilling').checked,
-      injectMetadata: document.getElementById('cfgMeta').checked
+      injectMetadata: document.getElementById('cfgMeta').checked,
+      injectIdentityPrompt: document.getElementById('cfgIdentity').checked
     }
   }).then(function(r) {
     if (r) { showMsg('appMsg', '设置已保存', true); loadConfig() }

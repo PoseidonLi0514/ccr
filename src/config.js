@@ -13,6 +13,7 @@ const DEFAULT_CONFIG = {
   options: {
     injectBillingHeader: true,
     injectMetadata: false,
+    injectIdentityPrompt: false,
   },
 }
 
