@@ -189,27 +189,23 @@ export function injectCCBody(body, version, options = {}, proxyKey) {
     }
   }
 
-  // 注入 CC 身份声明到 system 字段（带 cache_control，与真实 CC 一致）
-  // 用户自定义的 system 内容追加到 identity 文本后面，避免暴露非 CC 特征
+  // 注入 CC 身份声明到 system 字段（模拟真实 CC 的 system 数组结构）
+  // 真实 CC 结构：[billing header] → [identity + cache_control] → [完整指令 + cache_control]
+  // 用户自定义 system 作为第三个 block 追加在 identity 后面
   if (options.injectIdentityPrompt) {
+    const identityBlock = { type: 'text', text: CC_IDENTITY_PROMPT, cache_control: { type: 'ephemeral' } }
     if (Array.isArray(body.system)) {
       const hasIdentity = body.system.some(
         b => typeof b.text === 'string' && b.text.includes('You are Claude Code')
       )
       if (!hasIdentity) {
-        // 收集所有现有文本，合并到 identity 后面
-        const existingTexts = body.system
-          .filter(b => b.type === 'text' && b.text)
-          .map(b => b.text)
-        const merged = existingTexts.length > 0
-          ? CC_IDENTITY_PROMPT + '\n' + existingTexts.join('\n')
-          : CC_IDENTITY_PROMPT
-        body.system = [{ type: 'text', text: merged, cache_control: { type: 'ephemeral' } }]
+        body.system.splice(0, 0, identityBlock)
       }
     } else if (typeof body.system === 'string' && body.system.length > 0) {
-      body.system = [{ type: 'text', text: CC_IDENTITY_PROMPT + '\n' + body.system, cache_control: { type: 'ephemeral' } }]
+      const userBlock = { type: 'text', text: body.system, cache_control: { type: 'ephemeral' } }
+      body.system = [identityBlock, userBlock]
     } else {
-      body.system = [{ type: 'text', text: CC_IDENTITY_PROMPT, cache_control: { type: 'ephemeral' } }]
+      body.system = [identityBlock]
     }
   }
 
