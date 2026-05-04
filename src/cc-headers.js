@@ -190,19 +190,26 @@ export function injectCCBody(body, version, options = {}, proxyKey) {
   }
 
   // 注入 CC 身份声明到 system 字段（带 cache_control，与真实 CC 一致）
+  // 用户自定义的 system 内容追加到 identity 文本后面，避免暴露非 CC 特征
   if (options.injectIdentityPrompt) {
-    const identityBlock = { type: 'text', text: CC_IDENTITY_PROMPT, cache_control: { type: 'ephemeral' } }
     if (Array.isArray(body.system)) {
       const hasIdentity = body.system.some(
         b => typeof b.text === 'string' && b.text.includes('You are Claude Code')
       )
       if (!hasIdentity) {
-        body.system.push(identityBlock)
+        // 收集所有现有文本，合并到 identity 后面
+        const existingTexts = body.system
+          .filter(b => b.type === 'text' && b.text)
+          .map(b => b.text)
+        const merged = existingTexts.length > 0
+          ? CC_IDENTITY_PROMPT + '\n' + existingTexts.join('\n')
+          : CC_IDENTITY_PROMPT
+        body.system = [{ type: 'text', text: merged, cache_control: { type: 'ephemeral' } }]
       }
     } else if (typeof body.system === 'string' && body.system.length > 0) {
-      body.system = [{ type: 'text', text: body.system }, identityBlock]
-    } else if (!body.system) {
-      body.system = [identityBlock]
+      body.system = [{ type: 'text', text: CC_IDENTITY_PROMPT + '\n' + body.system, cache_control: { type: 'ephemeral' } }]
+    } else {
+      body.system = [{ type: 'text', text: CC_IDENTITY_PROMPT, cache_control: { type: 'ephemeral' } }]
     }
   }
 
